@@ -1,0 +1,87 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: *k8s_namespace*
+  name: *project_name*
+  labels:
+    app.kubernetes.io/name: *project_name*
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: *project_name*
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: *project_name*
+        app: *project_name*
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '9095'
+    spec:
+      securityContext:
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      serviceAccountName: tf-cdn-invalidation-processor
+      containers:
+        - name: *project_name*
+          image: localhost:5000/*project_name*:latest
+          env:
+            - name: SENTRY_DSN
+              value: https://0038d867a3414ba89d4fafc7833aa6d3@sentry10.bynder.cloud/PROJECT_ID
+            - name: NAMESPACE
+              value: *k8s_namespace*
+          envFrom:
+            - configMapRef:
+                name: default-global-config
+                optional: true
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp-dir
+          readinessProbe:
+            httpGet:
+              path: "/ready"
+              port: management
+            periodSeconds: 10
+            failureThreshold: 10
+            initialDelaySeconds: 20
+          livenessProbe:
+            httpGet:
+              path: "/alive"
+              port: management
+            periodSeconds: 10
+            failureThreshold: 10
+            initialDelaySeconds: 20
+          resources:
+            limits:
+              cpu: 500m
+              memory: 1Gi
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: remoting
+              containerPort: 2552
+            - name: prometheus
+              containerPort: 9095
+            - name: management
+              containerPort: 8558
+              protocol: TCP
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - all
+      volumes:
+        - name: tmp-dir
+          emptyDir: {}
