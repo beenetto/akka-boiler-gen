@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: *project_name*
+  description: |
+    *project_description*
+  annotations:
+    backstage.io/techdocs-ref: dir:.
+    sentry.io/project-slug: *project_name*
+    jenkins.io/github-folder: bynder-github/*project_name*
+    backstage.io/kubernetes-label-selector: 'app.kubernetes.io/name=*project_name*'
+spec:
+  type: service
+  owner: *project_owner*
+  system: *k8s_namespace*
+  lifecycle: experimental

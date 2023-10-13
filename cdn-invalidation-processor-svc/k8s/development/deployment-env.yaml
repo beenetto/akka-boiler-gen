@@ -1,0 +1,17 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cdn-invalidation-processor-svc
+  namespace: cdn
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: cdn-invalidation-processor-svc
+          resources:
+            requests:
+              cpu: "100m"
+            limits:
+              cpu: "500m"

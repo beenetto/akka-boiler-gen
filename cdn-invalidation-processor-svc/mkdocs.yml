@@ -1,0 +1,11 @@
+site_name: cdn-invalidation-processor-svc
+site_description: Documentation for cdn-invalidation-processor-svc
+
+plugins:
+  - techdocs-core
+
+nav:
+  - Home: index.md
+  - About the service:
+      - Architecture:
+          - Overview: about/architecture/index.md
