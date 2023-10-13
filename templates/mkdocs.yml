@@ -1,0 +1,11 @@
+site_name: *project_name*
+site_description: Documentation for *project_name*
+
+plugins:
+  - techdocs-core
+
+nav:
+  - Home: index.md
+  - About the service:
+      - Architecture:
+          - Overview: about/architecture/index.md

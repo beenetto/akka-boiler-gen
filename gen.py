@@ -1,32 +1,6 @@
 import os
 import shutil
 
-SBT_CONTENT = """
-name := "*project_name*"
-version := "1.0.0"
-scalaVersion := "3.1.1"
-
-val akkaVersion = "2.6.20"
-val akkaHttpVersion = "10.2.10"
-
-// Logging
-libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.4.7"
-libraryDependencies += "ch.qos.logback.contrib" % "logback-jackson" % "0.1.5"
-libraryDependencies += "ch.qos.logback.contrib" % "logback-json-classic" % "0.1.5"
-libraryDependencies += "io.sentry" % "sentry-logback" % "6.19.0"
-
-// AKKA
-libraryDependencies += "com.typesafe.akka" %% "akka-slf4j" % akkaVersion cross CrossVersion.for3Use2_13
-libraryDependencies += "com.typesafe.akka" %% "akka-actor-typed" %  akkaVersion cross CrossVersion.for3Use2_13
-libraryDependencies += "com.typesafe.akka" %% "akka-stream" % akkaVersion cross CrossVersion.for3Use2_13
-
-// AKKA http
-libraryDependencies += "com.typesafe.akka" %% "akka-http" % akkaHttpVersion cross CrossVersion.for3Use2_13
-libraryDependencies += "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion cross CrossVersion.for3Use2_13
-
-
-"""
-
 MAIN_CLASS_CONTENT = """
 package *module_name*
 
@@ -62,7 +36,7 @@ object Main extends App {
     val host = serviceConf.getString("host")
     val port = serviceConf.getInt("port")
     val bindingFuture = Http().newServerAt(host, port).bind(ServiceRoutes(() => isReady))
-    logger.info(s"Service endpoints ["/alive", "/ready"] are available @ http://$host:$port/")
+    logger.info(s"Service endpoints [/alive, /ready] are available @ http://$host:$port/")
 
   def isReady: Boolean = {
     checkOne() && checkTwo()
@@ -105,26 +79,8 @@ object ServiceRoutes {
 
 """
 
-APPLICATION_CONF_CONTENT = """
-include "service"
-akka {
-    loglevel = "INFO"
-}
 
-"""
-
-SERVICE_CONF_CONTENT = """
-service {
-    host = "localhost"
-    port = 8558
-    readiness = "ready"
-    health = "alive"
-}
-
-"""
-
-
-def generate_akka_project(project_name, k8s_namespace):
+def generate_akka_project(project_name, k8s_namespace, project_owner, project_description):
     """Generates an Akka project with the given name."""
 
     # Create the project directory
@@ -143,6 +99,21 @@ def generate_akka_project(project_name, k8s_namespace):
     resources_dir = os.path.join(project_dir, "src", "main", "resources")
     os.makedirs(resources_dir, exist_ok=True)
 
+    # Copy project root
+    for item in os.listdir('templates'):
+        if os.path.isfile(os.path.join('templates', item)):
+            copied_file = os.path.join(project_dir, item)
+            shutil.copy(os.path.join('templates', item), copied_file)
+            with open(copied_file, "r") as in_file:
+                file_contents = in_file.read()
+                modified_contents = file_contents.replace(
+                    "*project_name*", project_name.strip()).replace(
+                    "*k8s_namespace*", k8s_namespace.strip()).replace(
+                    "*project_owner*", project_owner.strip()).replace(
+                    "*project_description*", project_description.strip())
+                with open(copied_file, "w") as output_file:
+                    output_file.write(modified_contents)
+
     # Copy K8s
     k8s_dir = os.path.join(project_dir, "k8s")
     shutil.copytree("templates/k8s",  k8s_dir)
@@ -158,15 +129,24 @@ def generate_akka_project(project_name, k8s_namespace):
                 with open(file_path, "w") as output_file:
                     output_file.write(modified_contents)
 
-    # Copy static files
-    shutil.copyfile(
-        "templates/static/logback.xml",
-        os.path.join(resources_dir, "logback.xml"))
+    # Copy docs
+    docs_dir = os.path.join(project_dir, "docs")
+    shutil.copytree("templates/docs", docs_dir)
 
-    # Create the SBT file
-    sbt_file = os.path.join(project_dir, "build.sbt")
-    with open(sbt_file, "w") as f:
-        f.write(SBT_CONTENT.replace('*project_name*', project_name.strip()))
+    # Copy project configs
+    project_config_dir = os.path.join(project_dir, "project")
+    shutil.copytree("templates/project", project_config_dir)
+
+    # Copy resources files
+    shutil.copyfile(
+        "templates/resources/logback.xml",
+        os.path.join(resources_dir, "logback.xml"))
+    shutil.copyfile(
+        "templates/resources/application.conf",
+        os.path.join(resources_dir, "application.conf"))
+    shutil.copyfile(
+        "templates/resources/service.conf",
+        os.path.join(resources_dir, "service.conf"))
 
     # Create the main class
     main_class_file = os.path.join(source_dir, "Main.scala")
@@ -178,30 +158,24 @@ def generate_akka_project(project_name, k8s_namespace):
     with open(service_routes_file, "w") as f:
         f.write(SERVICE_ROUTES_CONTENT.replace('*module_name*', module_name.strip()))
 
-    # Create the application configuration file
-    config_file = os.path.join(resources_dir, "application.conf")
-    with open(config_file, "w") as f:
-        f.write(APPLICATION_CONF_CONTENT)
-
-    # Create the service configuration file
-    config_file = os.path.join(resources_dir, "service.conf")
-    with open(config_file, "w") as f:
-        f.write(SERVICE_CONF_CONTENT)
-
 
 if __name__ == "__main__":
     project_name = input("Enter the name of the Akka project: ")
     module_name = input("Enter the name of the Akka module: ")
-    k8s_namespace = input("Enter the namespace of the Akka module: ")
+    k8s_namespace = input("Enter K8s : ")
+    project_owner = input("Enter the project owner: ") or ""
+    project_description = input("Enter the project description: ") or ""
 
     print(f"Project name: {project_name}")
     print(f"Module name: {module_name}")
-    print(f"k8s namespace: {k8s_namespace}")
+    print(f"K8s namespace: {k8s_namespace}")
+    print(f"Owner: {project_owner}")
+    print(f"Description: {project_description}")
 
     confirmation = input(f"Proceed with creating project ${project_name}? (y/n): ")
 
     if confirmation == "y":
-        generate_akka_project(project_name, k8s_namespace)
+        generate_akka_project(project_name, k8s_namespace, project_owner, project_description)
         print(f"${project_name} created successfully.")
     else:
         print("Files not copied.")
