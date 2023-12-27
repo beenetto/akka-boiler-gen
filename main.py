@@ -2,7 +2,7 @@ import os
 import shutil
 
 
-def generate_akka_project(project_name, k8s_namespace, project_owner, project_description):
+def generate_akka_project(project_name, module_name, k8s_namespace, project_owner, project_description):
     """Generates an Akka project with the given name."""
 
     project_dir = os.path.join(os.getcwd(), f'output/{project_name.strip()}')
@@ -22,6 +22,11 @@ def generate_akka_project(project_name, k8s_namespace, project_owner, project_de
                 with open(file_path, "w") as output_file:
                     output_file.write(modified_contents)
 
+    os.rename(f'output/{project_name.strip()}/src/main/scala/main_package',
+              f'output/{project_name.strip()}/src/main/scala/{module_name}')
+    os.rename(f'output/{project_name.strip()}/src/test/scala/main_package',
+              f'output/{project_name.strip()}/src/test/scala/{module_name}')
+
 
 if __name__ == "__main__":
     project_name = input("Enter the name of the Akka project: ")
@@ -39,7 +44,7 @@ if __name__ == "__main__":
     confirmation = input(f"Proceed with creating project ${project_name}? (y/n): ")
 
     if confirmation == "y":
-        generate_akka_project(project_name, k8s_namespace, project_owner, project_description)
+        generate_akka_project(project_name, module_name, k8s_namespace, project_owner, project_description)
         print(f"${project_name} created successfully.")
     else:
         print("Files not copied.")
